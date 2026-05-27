@@ -1,8 +1,6 @@
 name: 📱 Build Android APK
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -14,7 +12,7 @@ jobs:
       - name: 📥 Checkout
         uses: actions/checkout@v4
 
-      - name: 🐍 Python 3.11
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -24,36 +22,34 @@ jobs:
         with:
           path: ~/.buildozer
           key: buildozer-${{ hashFiles('client/buildozer.spec') }}
-          restore-keys: buildozer-
 
-      - name: 📦 System dependencies
+      - name: 📦 Install system dependencies
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y \
-            git zip unzip openjdk-17-jdk \
+          sudo apt update -qq
+          sudo apt install -y git zip unzip openjdk-17-jdk \
             python3-pip autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
-            libtinfo5 cmake libffi-dev libssl-dev build-essential ccache
+            libtinfo5 cmake libffi-dev libssl-dev build-essential
 
-      - name: ⚙️ Install buildozer & cython
+      - name: ⚙️ Install buildozer
         run: pip install buildozer cython
 
-      - name: 🔑 Accept all Android SDK licenses
+      - name: 🔧 Force accept SDK licenses (bypass)
         run: |
           mkdir -p ~/.android
-          echo "count=0" > ~/.android/repositories.cfg
-          # Запустим buildozer один раз, чтобы он скачал SDK (если ещё нет)
+          touch ~/.android/repositories.cfg
+          # Запускаем buildozer один раз, чтобы он создал структуру
           cd client
           buildozer android debug || true
           cd ..
-          # Найдём sdkmanager
+          # Находим sdkmanager и принудительно принимаем лицензии без интерактива
           SDKMANAGER=$(find ~/.buildozer -name "sdkmanager" | head -1)
-          if [ -f "$SDKMANAGER" ]; then
-            yes | $SDKMANAGER --licenses
-          else
-            echo "sdkmanager not found, trying alternative path"
-            SDKMANAGER=~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
+          if [ -n "$SDKMANAGER" ]; then
+            echo "Accepting licenses via $SDKMANAGER"
             yes | $SDKMANAGER --licenses || true
+          else
+            echo "sdkmanager not found, using fallback"
+            ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses <<< y || true
           fi
 
       - name: 🏗️ Build APK
@@ -63,7 +59,6 @@ jobs:
       - name: 📤 Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VoIPPhone-debug-apk
+          name: VoIPPhone
           path: client/bin/*.apk
-          retention-days: 14
           
