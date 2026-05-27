@@ -1,62 +1,28 @@
-name: 📱 Build Android APK
-
-on:
-  workflow_dispatch:
+name: Build APK
+on: workflow_dispatch
 
 jobs:
   build:
     runs-on: ubuntu-22.04
-    timeout-minutes: 60
-
     steps:
-      - name: 📥 Checkout
-        uses: actions/checkout@v4
-
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-
-      - name: 💾 Cache buildozer
+      - name: Cache buildozer
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
           key: buildozer-${{ hashFiles('client/buildozer.spec') }}
-
-      - name: 📦 Install system dependencies
+      - name: Install dependencies
         run: |
           sudo apt update -qq
-          sudo apt install -y git zip unzip openjdk-17-jdk \
-            python3-pip autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev libncursesw5-dev \
-            libtinfo5 cmake libffi-dev libssl-dev build-essential
-
-      - name: ⚙️ Install buildozer
-        run: pip install buildozer cython
-
-      - name: 🔧 Force accept SDK licenses (bypass)
-        run: |
-          mkdir -p ~/.android
-          touch ~/.android/repositories.cfg
-          # Запускаем buildozer один раз, чтобы он создал структуру
-          cd client
-          buildozer android debug || true
-          cd ..
-          # Находим sdkmanager и принудительно принимаем лицензии без интерактива
-          SDKMANAGER=$(find ~/.buildozer -name "sdkmanager" | head -1)
-          if [ -n "$SDKMANAGER" ]; then
-            echo "Accepting licenses via $SDKMANAGER"
-            yes | $SDKMANAGER --licenses || true
-          else
-            echo "sdkmanager not found, using fallback"
-            ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager --licenses <<< y || true
-          fi
-
-      - name: 🏗️ Build APK
+          sudo apt install -y git zip unzip openjdk-17-jdk python3-pip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          pip install buildozer cython
+      - name: Build APK
         working-directory: client
         run: buildozer -v android debug
-
-      - name: 📤 Upload APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: VoIPPhone
