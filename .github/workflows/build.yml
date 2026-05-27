@@ -1,0 +1,60 @@
+name: 📱 Build Android APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🐍 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 💾 Cache buildozer
+        uses: actions/cache@v4
+        with:
+          path: ~/.buildozer
+          key: buildozer-${{ hashFiles('client/buildozer.spec') }}
+          restore-keys: buildozer-
+
+      - name: 📦 System dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            git zip unzip openjdk-17-jdk \
+            python3-pip autoconf libtool pkg-config \
+            zlib1g-dev libncurses5-dev libncursesw5-dev \
+            libtinfo5 cmake libffi-dev libssl-dev build-essential ccache
+
+      - name: ⚙️ Install buildozer & cython
+        run: pip install buildozer cython
+
+      - name: 🔑 Accept Android SDK licenses
+        run: |
+          mkdir -p ~/.android
+          echo "count=0" > ~/.android/repositories.cfg
+          yes | buildozer -v android debug 2>&1 | head -10 || true
+          SDK=$HOME/.buildozer/android/platform/android-sdk
+          if [ -f "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
+            yes | $SDK/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+          fi
+
+      - name: 🏗️ Build APK
+        working-directory: client
+        run: buildozer -v android debug
+
+      - name: 📤 Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoIPPhone-debug-apk
+          path: client/bin/*.apk
+          retention-days: 14
