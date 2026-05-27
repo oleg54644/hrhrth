@@ -58,3 +58,4 @@ jobs:
           name: VoIPPhone-debug-apk
           path: client/bin/*.apk
           retention-days: 14
+          
