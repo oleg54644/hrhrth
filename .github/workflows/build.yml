@@ -38,14 +38,22 @@ jobs:
       - name: ⚙️ Install buildozer & cython
         run: pip install buildozer cython
 
-      - name: 🔑 Accept Android SDK licenses
+      - name: 🔑 Accept all Android SDK licenses
         run: |
           mkdir -p ~/.android
           echo "count=0" > ~/.android/repositories.cfg
-          yes | buildozer -v android debug 2>&1 | head -10 || true
-          SDK=$HOME/.buildozer/android/platform/android-sdk
-          if [ -f "$SDK/cmdline-tools/latest/bin/sdkmanager" ]; then
-            yes | $SDK/cmdline-tools/latest/bin/sdkmanager --licenses 2>/dev/null || true
+          # Запустим buildozer один раз, чтобы он скачал SDK (если ещё нет)
+          cd client
+          buildozer android debug || true
+          cd ..
+          # Найдём sdkmanager
+          SDKMANAGER=$(find ~/.buildozer -name "sdkmanager" | head -1)
+          if [ -f "$SDKMANAGER" ]; then
+            yes | $SDKMANAGER --licenses
+          else
+            echo "sdkmanager not found, trying alternative path"
+            SDKMANAGER=~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
+            yes | $SDKMANAGER --licenses || true
           fi
 
       - name: 🏗️ Build APK
