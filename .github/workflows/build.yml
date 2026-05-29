@@ -22,7 +22,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ hashFiles('client/buildozer.spec') }}-v5
+          key: buildozer-${{ hashFiles('client/buildozer.spec') }}-v6
           restore-keys: buildozer-
 
       - name: System dependencies
@@ -41,27 +41,26 @@ jobs:
           python3.11 -m pip install cython==0.29.33
           python3.11 -m pip install buildozer==1.5.0
 
-      - name: Setup Android SDK
+      - name: Setup Android SDK with sdkmanager
         run: |
-          # Скачать и установить cmdline-tools
           SDK=$HOME/.buildozer/android/platform/android-sdk
           mkdir -p $SDK/cmdline-tools
           cd /tmp
           wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
           unzip -q commandlinetools-linux-9477386_latest.zip
           mv cmdline-tools $SDK/cmdline-tools/latest
-          export PATH="$SDK/cmdline-tools/latest/bin:$PATH"
-          export ANDROID_SDK_ROOT=$SDK
+
+          # Создаём симлинк tools/bin/sdkmanager — именно сюда смотрит buildozer
+          mkdir -p $SDK/tools/bin
+          ln -sf $SDK/cmdline-tools/latest/bin/sdkmanager $SDK/tools/bin/sdkmanager
+          ln -sf $SDK/cmdline-tools/latest/bin/avdmanager $SDK/tools/bin/avdmanager
 
           # Принять все лицензии
           mkdir -p $SDK/licenses
-          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $SDK/licenses/android-sdk-license
-          echo -e "\nd975f751698a77b662f1254ddbeed3901e976f5a" >> $SDK/licenses/android-sdk-license
-          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" >> $SDK/licenses/android-sdk-license
-          echo -e "\ne9acab5b5fbb560a72cfaecce8946896ff6aab9d" >> $SDK/licenses/android-sdk-license
-          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $SDK/licenses/android-sdk-preview-license
+          printf '\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd975f751698a77b662f1254ddbeed3901e976f5a\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a\ne9acab5b5fbb560a72cfaecce8946896ff6aab9d' > $SDK/licenses/android-sdk-license
+          printf '\n84831b9409646a918e30573bab4c9c91346d8abd' > $SDK/licenses/android-sdk-preview-license
 
-          # Установить build-tools и platform-tools
+          # Установить нужные компоненты
           yes | $SDK/cmdline-tools/latest/bin/sdkmanager \
             --sdk_root=$SDK \
             "platform-tools" \
@@ -69,15 +68,13 @@ jobs:
             "platforms;android-33" 2>/dev/null || true
 
           echo "ANDROID_SDK_ROOT=$SDK" >> $GITHUB_ENV
+          echo "$SDK/tools/bin" >> $GITHUB_PATH
+          echo "$SDK/platform-tools" >> $GITHUB_PATH
 
       - name: Build APK
         working-directory: client
         run: |
           SDK=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $SDK/licenses
-          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $SDK/licenses/android-sdk-license
-          echo -e "\nd975f751698a77b662f1254ddbeed3901e976f5a" >> $SDK/licenses/android-sdk-license
-          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" >> $SDK/licenses/android-sdk-license
           export ANDROID_SDK_ROOT=$SDK
           python3.11 -m buildozer android debug 2>&1
 
@@ -88,4 +85,3 @@ jobs:
           name: VoIPPhone-debug-apk
           path: client/bin/*.apk
           retention-days: 14
-
