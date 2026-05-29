@@ -22,14 +22,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ hashFiles('client/buildozer.spec') }}-v4
+          key: buildozer-${{ hashFiles('client/buildozer.spec') }}-v5
           restore-keys: buildozer-
 
       - name: System dependencies
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y \
-            git zip unzip openjdk-17-jdk \
+            git zip unzip openjdk-17-jdk wget \
             autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev \
@@ -41,30 +41,45 @@ jobs:
           python3.11 -m pip install cython==0.29.33
           python3.11 -m pip install buildozer==1.5.0
 
-      - name: Accept Android SDK licenses
+      - name: Setup Android SDK
         run: |
-          mkdir -p ~/.android
-          echo "count=0" > ~/.android/repositories.cfg
-          mkdir -p ~/.buildozer/android/platform
-          # Принять все лицензии заранее
-          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_SDK_ROOT/licenses
-          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $ANDROID_SDK_ROOT/licenses/android-sdk-preview-license
-          echo -e "\nd975f751698a77b662f1254ddbeed3901e976f5a" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\ne9acab5b5fbb560a72cfaecce8946896ff6aab9d" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
+          # Скачать и установить cmdline-tools
+          SDK=$HOME/.buildozer/android/platform/android-sdk
+          mkdir -p $SDK/cmdline-tools
+          cd /tmp
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip
+          unzip -q commandlinetools-linux-9477386_latest.zip
+          mv cmdline-tools $SDK/cmdline-tools/latest
+          export PATH="$SDK/cmdline-tools/latest/bin:$PATH"
+          export ANDROID_SDK_ROOT=$SDK
+
+          # Принять все лицензии
+          mkdir -p $SDK/licenses
+          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $SDK/licenses/android-sdk-license
+          echo -e "\nd975f751698a77b662f1254ddbeed3901e976f5a" >> $SDK/licenses/android-sdk-license
+          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" >> $SDK/licenses/android-sdk-license
+          echo -e "\ne9acab5b5fbb560a72cfaecce8946896ff6aab9d" >> $SDK/licenses/android-sdk-license
+          echo -e "\n84831b9409646a918e30573bab4c9c91346d8abd" > $SDK/licenses/android-sdk-preview-license
+
+          # Установить build-tools и platform-tools
+          yes | $SDK/cmdline-tools/latest/bin/sdkmanager \
+            --sdk_root=$SDK \
+            "platform-tools" \
+            "build-tools;33.0.2" \
+            "platforms;android-33" 2>/dev/null || true
+
+          echo "ANDROID_SDK_ROOT=$SDK" >> $GITHUB_ENV
 
       - name: Build APK
         working-directory: client
         run: |
-          export ANDROID_SDK_ROOT=$HOME/.buildozer/android/platform/android-sdk
-          mkdir -p $ANDROID_SDK_ROOT/licenses
-          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\nd975f751698a77b662f1254ddbeed3901e976f5a" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          echo -e "\ne9acab5b5fbb560a72cfaecce8946896ff6aab9d" >> $ANDROID_SDK_ROOT/licenses/android-sdk-license
-          yes | python3.11 -m buildozer android debug 2>&1
+          SDK=$HOME/.buildozer/android/platform/android-sdk
+          mkdir -p $SDK/licenses
+          echo -e "\n24333f8a63b6825ea9c5514f83c2829b004d1fee" > $SDK/licenses/android-sdk-license
+          echo -e "\nd975f751698a77b662f1254ddbeed3901e976f5a" >> $SDK/licenses/android-sdk-license
+          echo -e "\n33b6a2b64607f11b759f320ef9dff4ae5c47d97a" >> $SDK/licenses/android-sdk-license
+          export ANDROID_SDK_ROOT=$SDK
+          python3.11 -m buildozer android debug 2>&1
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
