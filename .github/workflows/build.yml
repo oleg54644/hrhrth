@@ -22,7 +22,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ hashFiles('client/buildozer.spec') }}-v2
+          key: buildozer-${{ hashFiles('client/buildozer.spec') }}-v3
           restore-keys: buildozer-
 
       - name: System dependencies
@@ -30,25 +30,22 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y \
             git zip unzip openjdk-17-jdk \
-            python3-pip autoconf libtool pkg-config \
+            autoconf libtool pkg-config \
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             libtinfo5 cmake libffi-dev libssl-dev \
             build-essential ccache libltdl-dev
 
       - name: Install buildozer and cython
         run: |
-          pip install --upgrade pip
-          pip install cython==0.29.33
-          pip install buildozer==1.5.0
-
-      - name: Accept Android licenses
-        run: |
-          mkdir -p ~/.android
-          echo "count=0" > ~/.android/repositories.cfg
+          python3.11 -m pip install --upgrade pip
+          python3.11 -m pip install cython==0.29.33
+          python3.11 -m pip install buildozer==1.5.0
 
       - name: Build APK
         working-directory: client
-        run: yes | buildozer -v android debug 2>&1
+        run: |
+          export PATH="/opt/hostedtoolcache/Python/3.11.*/x64/bin:$PATH"
+          python3.11 -m buildozer android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -57,4 +54,3 @@ jobs:
           name: VoIPPhone-debug-apk
           path: client/bin/*.apk
           retention-days: 14
-
