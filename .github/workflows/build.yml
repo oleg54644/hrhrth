@@ -19,7 +19,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.buildozer
-          key: buildozer-${{ hashFiles('client/buildozer.spec') }}-v7
+          key: buildozer-${{ hashFiles('client/buildozer.spec') }}-v8
 
       - name: System dependencies
         run: |
