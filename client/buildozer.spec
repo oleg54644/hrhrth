@@ -6,7 +6,7 @@ source.dir      = .
 source.include_exts = py,json,png,jpg,atlas
 version         = 1.0.0
 
-requirements = python3,kivy==2.3.1,websocket-client==1.6.1,certifi,requests,pyjnius==1.6.1,android
+requirements = python3,kivy==2.3.1,websocket-client==1.6.1,certifi,requests,pyjnius,android
 
 orientation = portrait
 
